@@ -3,8 +3,22 @@ package structs
 
 import (
 	"fmt"
-
 	"reflect"
+
+	"github.com/stoewer/go-strcase"
+)
+
+// Case encapsulates the default string case to use for struct field names as
+// map keys if no field tag is provided. See github.com/stoewer/go-strcase for
+// an explanation of the string cases.
+type Case int
+
+const (
+	CASENODEFAULT Case = iota
+	CASESNAKE
+	CASEKEBAB
+	CASELOWERCAMEL
+	CASEUPPERCAMEL
 )
 
 var (
@@ -17,9 +31,11 @@ var (
 // Struct encapsulates a struct type to provide several high level functions
 // around the struct.
 type Struct struct {
-	raw     interface{}
-	value   reflect.Value
-	TagName string
+	raw   interface{}
+	value reflect.Value
+
+	TagName     string
+	DefaultCase Case
 }
 
 // New returns a new *Struct with the struct s. It panics if the s's kind is
@@ -102,6 +118,17 @@ func (s *Struct) FillMap(out map[string]interface{}) {
 		tagName, tagOpts := parseTag(field.Tag.Get(s.TagName))
 		if tagName != "" {
 			name = tagName
+		} else if s.DefaultCase != CASENODEFAULT {
+			switch s.DefaultCase {
+			case CASESNAKE:
+				name = strcase.SnakeCase(name)
+			case CASEKEBAB:
+				name = strcase.KebabCase(name)
+			case CASELOWERCAMEL:
+				name = strcase.LowerCamelCase(name)
+			case CASEUPPERCAMEL:
+				name = strcase.UpperCamelCase(name)
+			}
 		}
 
 		// if the value is a zero value and the field is marked as omitempty do
@@ -446,10 +473,30 @@ func Map(s interface{}) map[string]interface{} {
 	return New(s).Map()
 }
 
+// MapDefaultCase converts the given struct to a map[string]interface{},
+// defaulting to the given case for map keys if a tag isn't present for the
+// field. For more info refer to Struct types Map() method. It panics if s's
+// kind is not struct.
+func MapDefaultCase(src interface{}, kase Case) map[string]interface{} {
+	s := New(src)
+	s.DefaultCase = kase
+
+	return s.Map()
+}
+
 // FillMap is the same as Map. Instead of returning the output, it fills the
 // given map.
 func FillMap(s interface{}, out map[string]interface{}) {
 	New(s).FillMap(out)
+}
+
+// FillMapDefaultCase is the same as MapDefaultCase. Instead of returning the
+// output, it fills the given map.
+func FillMapDefaultCase(src interface{}, out map[string]interface{}, kase Case) {
+	s := New(src)
+	s.DefaultCase = kase
+
+	s.FillMap(out)
 }
 
 // Values converts the given struct to a []interface{}. For more info refer to
@@ -518,6 +565,7 @@ func (s *Struct) nested(val reflect.Value) interface{} {
 	case reflect.Struct:
 		n := New(val.Interface())
 		n.TagName = s.TagName
+		n.DefaultCase = s.DefaultCase
 		m := n.Map()
 
 		// do not add the converted value if there are no exported fields, ie:

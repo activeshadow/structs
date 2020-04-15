@@ -1451,3 +1451,94 @@ func TestMap_InterfaceTypeWithMapValue(t *testing.T) {
 
 	_ = Map(a)
 }
+
+func TestMap_DefaultCase(t *testing.T) {
+	var T = struct {
+		FooBar string
+		Sucka  int
+		FishME bool
+	}{
+		FooBar: "a-value",
+		Sucka:  2,
+		FishME: true,
+	}
+
+	a := MapDefaultCase(T, CASESNAKE)
+
+	if typ := reflect.TypeOf(a).Kind(); typ != reflect.Map {
+		t.Errorf("Map should return a map type, got: %v", typ)
+	}
+
+	// we have three fields
+	if len(a) != 3 {
+		t.Errorf("Map should return a map of len 3, got: %d", len(a))
+	}
+
+	inMap := func(val interface{}) bool {
+		for _, v := range a {
+			if reflect.DeepEqual(v, val) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	for _, val := range []interface{}{"a-value", 2, true} {
+		if !inMap(val) {
+			t.Errorf("Map should have the value %v", val)
+		}
+	}
+
+	for _, k := range []string{"foo_bar", "sucka", "fish_me"} {
+		if _, ok := a[k]; !ok {
+			t.Errorf("Map should have the key '%s'", k)
+		}
+	}
+}
+
+func TestFillMap_DefaultCase(t *testing.T) {
+	var T = struct {
+		FooBar string
+		Sucka  int
+		FishME bool
+	}{
+		FooBar: "a-value",
+		Sucka:  2,
+		FishME: true,
+	}
+
+	a := make(map[string]interface{}, 0)
+	FillMapDefaultCase(T, a, CASESNAKE)
+
+	if typ := reflect.TypeOf(a).Kind(); typ != reflect.Map {
+		t.Errorf("Map should return a map type, got: %v", typ)
+	}
+
+	// we have three fields
+	if len(a) != 3 {
+		t.Errorf("Map should return a map of len 3, got: %d", len(a))
+	}
+
+	inMap := func(val interface{}) bool {
+		for _, v := range a {
+			if reflect.DeepEqual(v, val) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	for _, val := range []interface{}{"a-value", 2, true} {
+		if !inMap(val) {
+			t.Errorf("Map should have the value %v", val)
+		}
+	}
+
+	for _, k := range []string{"foo_bar", "sucka", "fish_me"} {
+		if _, ok := a[k]; !ok {
+			t.Errorf("Map should have the key '%s'", k)
+		}
+	}
+}
