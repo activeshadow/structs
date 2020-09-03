@@ -1497,6 +1497,51 @@ func TestMap_DefaultCase(t *testing.T) {
 	}
 }
 
+func TestMap_WithOptions(t *testing.T) {
+	var T = struct {
+		FooBar string
+		Sucka  int
+		FishME bool
+	}{
+		FooBar: "",
+		Sucka:  2,
+		FishME: true,
+	}
+
+	a := MapWithOptions(T, DefaultCase(CASE_SNAKE), DefaultOmitEmpty())
+
+	if typ := reflect.TypeOf(a).Kind(); typ != reflect.Map {
+		t.Errorf("Map should return a map type, got: %v", typ)
+	}
+
+	// we have two non-zero fields
+	if len(a) != 2 {
+		t.Errorf("Map should return a map of len 2, got: %d", len(a))
+	}
+
+	inMap := func(val interface{}) bool {
+		for _, v := range a {
+			if reflect.DeepEqual(v, val) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	for _, val := range []interface{}{2, true} {
+		if !inMap(val) {
+			t.Errorf("Map should have the value %v", val)
+		}
+	}
+
+	for _, k := range []string{"sucka", "fish_me"} {
+		if _, ok := a[k]; !ok {
+			t.Errorf("Map should have the key '%s'", k)
+		}
+	}
+}
+
 func TestFillMap_DefaultCase(t *testing.T) {
 	var T = struct {
 		FooBar string
@@ -1537,6 +1582,52 @@ func TestFillMap_DefaultCase(t *testing.T) {
 	}
 
 	for _, k := range []string{"foo_bar", "sucka", "fish_me"} {
+		if _, ok := a[k]; !ok {
+			t.Errorf("Map should have the key '%s'", k)
+		}
+	}
+}
+
+func TestFillMap_WithOptions(t *testing.T) {
+	var T = struct {
+		FooBar string
+		Sucka  int
+		FishME bool
+	}{
+		FooBar: "a-value",
+		Sucka:  0,
+		FishME: false,
+	}
+
+	a := make(map[string]interface{}, 0)
+	FillMapWithOptions(T, a, DefaultCase(CASE_SNAKE), DefaultOmitEmpty())
+
+	if typ := reflect.TypeOf(a).Kind(); typ != reflect.Map {
+		t.Errorf("Map should return a map type, got: %v", typ)
+	}
+
+	// we have three fields
+	if len(a) != 1 {
+		t.Errorf("Map should return a map of len 1, got: %d", len(a))
+	}
+
+	inMap := func(val interface{}) bool {
+		for _, v := range a {
+			if reflect.DeepEqual(v, val) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	for _, val := range []interface{}{"a-value"} {
+		if !inMap(val) {
+			t.Errorf("Map should have the value %v", val)
+		}
+	}
+
+	for _, k := range []string{"foo_bar"} {
 		if _, ok := a[k]; !ok {
 			t.Errorf("Map should have the key '%s'", k)
 		}

@@ -13,12 +13,21 @@ import (
 // an explanation of the string cases.
 type Case int
 
+// depricated
 const (
 	CASENODEFAULT Case = iota
 	CASESNAKE
 	CASEKEBAB
 	CASELOWERCAMEL
 	CASEUPPERCAMEL
+)
+
+const (
+	CASE_NODEFAULT Case = iota
+	CASE_SNAKE
+	CASE_KEBAB
+	CASE_LOWERCAMEL
+	CASE_UPPERCAMEL
 )
 
 var (
@@ -28,14 +37,43 @@ var (
 	DefaultTagName = "structs" // struct's field default tag name
 )
 
+type Option func(*options)
+
+type options struct {
+	defaultCase Case
+	defaultOmitEmpty bool
+}
+
+func newOptions(opts ...Option) options {
+	var o options
+
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	return o
+}
+
+func DefaultCase(c Case) Option {
+	return func(o *options) {
+		o.defaultCase = c
+	}
+}
+
+func DefaultOmitEmpty() Option {
+	return func(o *options) {
+		o.defaultOmitEmpty = true
+	}
+}
+
 // Struct encapsulates a struct type to provide several high level functions
 // around the struct.
 type Struct struct {
 	raw   interface{}
 	value reflect.Value
 
-	TagName     string
-	DefaultCase Case
+	TagName string
+	options options
 }
 
 // New returns a new *Struct with the struct s. It panics if the s's kind is
@@ -45,6 +83,15 @@ func New(s interface{}) *Struct {
 		raw:     s,
 		value:   strctVal(s),
 		TagName: DefaultTagName,
+	}
+}
+
+func NewWithOptions(s interface{}, opts ...Option) *Struct {
+	return &Struct{
+		raw:     s,
+		value:   strctVal(s),
+		TagName: DefaultTagName,
+		options: newOptions(opts...),
 	}
 }
 
@@ -118,22 +165,22 @@ func (s *Struct) FillMap(out map[string]interface{}) {
 		tagName, tagOpts := parseTag(field.Tag.Get(s.TagName))
 		if tagName != "" {
 			name = tagName
-		} else if s.DefaultCase != CASENODEFAULT {
-			switch s.DefaultCase {
-			case CASESNAKE:
+		} else {
+			switch s.options.defaultCase {
+			case CASE_SNAKE:
 				name = strcase.SnakeCase(name)
-			case CASEKEBAB:
+			case CASE_KEBAB:
 				name = strcase.KebabCase(name)
-			case CASELOWERCAMEL:
+			case CASE_LOWERCAMEL:
 				name = strcase.LowerCamelCase(name)
-			case CASEUPPERCAMEL:
+			case CASE_UPPERCAMEL:
 				name = strcase.UpperCamelCase(name)
 			}
 		}
 
 		// if the value is a zero value and the field is marked as omitempty do
 		// not include
-		if tagOpts.Has("omitempty") {
+		if tagOpts.Has("omitempty") || s.options.defaultOmitEmpty {
 			zero := reflect.Zero(val.Type()).Interface()
 			current := val.Interface()
 
@@ -478,9 +525,12 @@ func Map(s interface{}) map[string]interface{} {
 // field. For more info refer to Struct types Map() method. It panics if s's
 // kind is not struct.
 func MapDefaultCase(src interface{}, kase Case) map[string]interface{} {
-	s := New(src)
-	s.DefaultCase = kase
+	s := NewWithOptions(src, DefaultCase(kase))
+	return s.Map()
+}
 
+func MapWithOptions(src interface{}, opts ...Option) map[string]interface{} {
+	s := NewWithOptions(src, opts...)
 	return s.Map()
 }
 
@@ -493,9 +543,12 @@ func FillMap(s interface{}, out map[string]interface{}) {
 // FillMapDefaultCase is the same as MapDefaultCase. Instead of returning the
 // output, it fills the given map.
 func FillMapDefaultCase(src interface{}, out map[string]interface{}, kase Case) {
-	s := New(src)
-	s.DefaultCase = kase
+	s := NewWithOptions(src, DefaultCase(kase))
+	s.FillMap(out)
+}
 
+func FillMapWithOptions(src interface{}, out map[string]interface{}, opts ...Option) {
+	s := NewWithOptions(src, opts...)
 	s.FillMap(out)
 }
 
@@ -565,7 +618,7 @@ func (s *Struct) nested(val reflect.Value) interface{} {
 	case reflect.Struct:
 		n := New(val.Interface())
 		n.TagName = s.TagName
-		n.DefaultCase = s.DefaultCase
+		n.options = s.options
 		m := n.Map()
 
 		// do not add the converted value if there are no exported fields, ie:
